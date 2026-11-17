@@ -121,6 +121,11 @@ from .imbalanced import (
     LDSLoss,
     PropensityWeightedLoss,
 )
+from .linear_nuisance import (
+    LinearNuisanceMarginal,
+    MarginalizedNuisanceGaussianNLLLoss,
+    marginalize_linear_nuisance,
+)
 from .loss_registry import create_loss_from_config, get_regression_loss, list_regression_losses
 
 # Mixture Density Networks
@@ -221,7 +226,15 @@ from .split_eiv import (
     corrected_score_eiv_loss,
     split_measurement_loss,
 )
-from .student_t import StudentTLoss
+
+# 1-D structural similarity (spectra, time series, profiles)
+from .ssim import StructuralSimilarity1dLoss, structural_similarity_1d
+from .student_t import (
+    StudentTLoss,
+    effective_precision,
+    student_t_efficiency,
+    student_t_nll,
+)
 from .transforms import (
     BoxCoxTransformLoss,
     LogTransformLoss,
@@ -309,6 +322,7 @@ __all__ = [
     "LDSLoss",
     "LatentMarginalizationLoss",
     "LevelSetConformalPredictor",
+    "LinearNuisanceMarginal",
     "LocalConformal",
     "LocalConformalMAD",
     "LogCoshLoss",
@@ -316,6 +330,7 @@ __all__ = [
     "LowRankGaussianLoss",
     "MahalanobisFrontier",
     "MarginalizedMultiSourceGaussianNLLLoss",
+    "MarginalizedNuisanceGaussianNLLLoss",
     "MixtureDensityLoss",
     "MonteCarloConformal",
     "MultiExpectileLoss",
@@ -362,6 +377,7 @@ __all__ = [
     "SplitMeasurementLoss",
     "SqrtTransformLoss",
     "StructuralEIVLoss",
+    "StructuralSimilarity1dLoss",
     "StudentTLoss",
     "TransformedTargetLoss",
     "TukeyBiweightLoss",
@@ -401,13 +417,18 @@ __all__ = [
     "johnson_su_nll",
     "list_regression_losses",
     "low_rank_output_dim",
+    "marginalize_linear_nuisance",
     "quantile_loss",
     "rank_n_contrast_loss",
     "sinh_arcsinh_nll",
     "skew_normal_nll",
     "skew_t_nll",
+    "student_t_nll",
+    "student_t_efficiency",
+    "effective_precision",
     "split_low_rank_gaussian_output",
     "sqr_loss",
+    "structural_similarity_1d",
     "symmetric_spd_matrix_sqrt",
     "tweedie_loss",
     "conr_loss",

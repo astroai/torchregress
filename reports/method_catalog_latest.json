@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 162,
+    "total_methods": 165,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -27,13 +27,13 @@
       "multivariate": 1,
       "observation_mapping": 3,
       "ordinal": 2,
-      "point_loss": 1,
+      "point_loss": 2,
       "poisson": 4,
       "poisson_gaussian": 4,
-      "probabilistic_loss": 11,
+      "probabilistic_loss": 12,
       "quantile": 2,
       "representation_regularizer": 1,
-      "robust_algorithm": 1,
+      "robust_algorithm": 2,
       "robust_loss": 9,
       "semi_supervised": 1,
       "swag": 2,
@@ -47,7 +47,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 135
+      "Available": 138
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -295,6 +295,30 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Solver-agnostic, refit-capable IRLS controller with scalar and block Mahalanobis residuals, continuation, masks, precision weights, and finite/convergence diagnostics. The caller retains weighted-solver ownership."
+    },
+    {
+      "name": "batched_iteratively_reweighted_fit",
+      "family": "robust_algorithm",
+      "public_path": "torchregress.algorithms.batched_iteratively_reweighted_fit",
+      "task_tags": [
+        "outliers",
+        "robust_fitting",
+        "irls",
+        "many_small_fits",
+        "known_noise"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "no",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "IRLS for many independent rows at once (one spectrum, light curve or source per row) with known per-observation precision, masks and an optional model-proportional error term. Student-t (exact NLL with constants) or any robust_weights family; per-row convergence on the full step in standard errors, early exit of finished rows, Levenberg-Marquardt acceptance hook, penalty/prior term, fail-closed NaN rows. The caller owns the weighted solve; solve_normal_equations covers linear and non-negative cases."
     },
     {
       "name": "DensityWeightedLoss",
@@ -555,6 +579,51 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": ""
+    },
+    {
+      "name": "MarginalizedNuisanceGaussianNLLLoss",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.losses.MarginalizedNuisanceGaussianNLLLoss",
+      "task_tags": [
+        "sequence",
+        "known_noise",
+        "nuisance_marginalization",
+        "missing_labels"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "no",
+      "epistemic": "no",
+      "aleatoric": "partial",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Exact Gaussian NLL of [B, N] rows with known per-sample precision and a linear nuisance (continuum, baseline, calibration polynomial) integrated out by Woodbury: one m x m Cholesky per row, exact masking, flat priors as the restricted likelihood (fail closed when unidentified). marginalize_linear_nuisance also returns the posterior nuisance and the conditional residual. Noise is known, not learned."
+    },
+    {
+      "name": "StructuralSimilarity1dLoss",
+      "family": "point_loss",
+      "public_path": "torchregress.losses.StructuralSimilarity1dLoss",
+      "task_tags": [
+        "sequence",
+        "shape_similarity",
+        "missing_labels"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "no",
+      "ood_support": "no",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "1 - SSIM along the last dim of [..., N] sequences with masked/weighted local moments (normalised convolution) and coverage-based window exclusion; matches torchmetrics on [B, 1, N, 1] with padding='reflect'. A similarity index, not a likelihood: no noise model, depends on data_range, insensitive to local gain/offset. Pair with a likelihood loss for calibrated fits."
     },
     {
       "name": "QuantileLoss",

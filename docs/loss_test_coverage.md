@@ -205,6 +205,11 @@ The matrix above covers the core loss surface; these additional public symbols a
 | `waldo_statistic` | `waldo.py` | `tests/losses/test_waldo.py::test_waldo_statistic_shapes` | DEDICATED |
 | `DiscreteWasserstein1Loss` | `wasserstein1d.py` | `tests/losses/test_wasserstein1d.py::test_default_unit_bins_and_validation` | DIRECT-LIGHT |
 | `discrete_wasserstein1` | `wasserstein1d.py` | `tests/losses/test_wasserstein1d.py::test_metric_properties` | DIRECT-LIGHT |
+| `structural_similarity_1d` | `ssim.py` | `tests/losses/test_ssim.py::TestTorchmetricsParity` + `TestNumpyReference` | DEDICATED |
+| `StructuralSimilarity1dLoss` | `ssim.py` | `tests/losses/test_ssim.py::TestLossClass` | DEDICATED |
+| `marginalize_linear_nuisance` | `linear_nuisance.py` | `tests/losses/test_linear_nuisance.py::TestDenseParity` + `TestFlatPrior` + `TestMasking` | DEDICATED |
+| `MarginalizedNuisanceGaussianNLLLoss` | `linear_nuisance.py` | `tests/losses/test_linear_nuisance.py::TestLossClass` | DEDICATED |
+| `LinearNuisanceMarginal` | `linear_nuisance.py` | `tests/losses/test_linear_nuisance.py::TestDenseParity::test_full_prior_covariance_matches_multivariate_normal` | DIRECT-LIGHT |
 
 ### Internal helpers in `utils/gaussian_output.py`
 

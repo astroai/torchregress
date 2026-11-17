@@ -290,6 +290,7 @@ See also: [tail_mae](../api/metrics.md) and [tail_rmse](../api/metrics.md).
 - **Always report multiple metrics**: MSE (or RMSE) + MAE gives a balanced view of typical and worst-case performance. Add R² for interpretability.
 - **For outlier-heavy data**: Report median absolute error and MAD alongside mean-based metrics.
 - **For imbalanced targets**: Use tail metrics (`tail_mae`, `tail_rmse`) to evaluate performance on extreme target regions. See [Imbalanced regression](../losses/imbalanced.md).
+- **For sequences (spectra, light curves)**: per-element metrics ignore shape. [`structural_similarity_1d`](../losses/structural_similarity.md) scores windowed shape agreement with masks and weights; it is a similarity index, not a likelihood.
 - **[regression_metrics_report](../api/metrics.md)** provides a comprehensive dict of all point metrics in one call.
 
 ## References

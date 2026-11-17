@@ -28,6 +28,14 @@ from .irls import (
     IRLSConfig,
     reweight_fixed_predictions,
 )
+from .irls_batched import (
+    BatchedIRLSFitConfig,
+    BatchedIRLSFitResult,
+    BatchedIRLSProblem,
+    BatchedIRLSStep,
+    IRLSRowStatus,
+    batched_iteratively_reweighted_fit,
+)
 from .irls_fit import (
     IRLSBreakdownError,
     IRLSCallbacks,
@@ -41,6 +49,7 @@ from .irls_fit import (
 )
 from .ivon import IVON
 from .latentnn import LatentNN
+from .normal_equations import NormalEquationsSolution, solve_normal_equations
 from .rc import RegressionCalibration
 from .simex import SIMEX
 from .tictac import TaylorInducedCovarianceHead
@@ -60,6 +69,14 @@ __all__ = [
     "IRLSFitResult",
     "IRLSBreakdownError",
     "IRLSConfig",
+    "batched_iteratively_reweighted_fit",
+    "BatchedIRLSProblem",
+    "BatchedIRLSStep",
+    "BatchedIRLSFitConfig",
+    "BatchedIRLSFitResult",
+    "IRLSRowStatus",
+    "solve_normal_equations",
+    "NormalEquationsSolution",
     "RegressionCalibration",
     "SIMEX",
     "LatentNN",

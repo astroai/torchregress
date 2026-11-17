@@ -183,6 +183,8 @@ def test_reduction_behavior():
         "JointBinnedDensityLoss",  # Needs per-target bin_edges + joint logits
         "UncertaintyAwareConR",  # Needs model predictions + label_sigma
         "CumulativeCDFLoss",  # Needs bin centers
+        "StructuralSimilarity1dLoss",  # Needs sequences longer than its window (tested in test_ssim)
+        "MarginalizedNuisanceGaussianNLLLoss",  # Needs precision + nuisance basis
     ]
 
     # Flexible-shape family losses consume multi-column parameter vectors

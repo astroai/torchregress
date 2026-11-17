@@ -182,8 +182,10 @@ nav = [
       { "Faithful & CRPS Gaussian" = "losses/faithful_gaussian.md" },
       { "Beta Negative Log-Likelihood" = "losses/beta_nll.md" },
       { "Wasserstein Bound Surrogate" = "losses/gaussian_wasserstein.md" },
+      { "Linear-Nuisance Marginal Likelihood" = "losses/linear_nuisance.md" },
     ] },
     { "Outlier-Resistant" = "losses/robust.md" },
+    { "Structural Similarity (1-D)" = "losses/structural_similarity.md" },
     { "Quantile & Expectile" = "losses/quantile_expectile.md" },
     { "Flexible-Shape Families" = "losses/families.md" },
     { "Distributional Modeling" = [

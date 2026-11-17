@@ -28,6 +28,7 @@ $$\boxed{\;\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2}\log(2\pi\sig
 | **`GaussianWassersteinBoundLoss`** | Configurable | $\mu$, cov / Cholesky / root | [GaussianWassersteinBoundLoss](../api/losses.md) | Supervise mean + covariance vs labels or pseudo-labels |
 | **`MultivariateGaussianLoss`** | Full | $(\mu, \Sigma)$ | [MultivariateGaussianLoss](../api/losses.md) | Correlated multi-output (small $k$) |
 | **`LowRankGaussianLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [LowRankGaussianLoss](../api/losses.md) | Correlated multi-output (large $k$) |
+| **`MarginalizedNuisanceGaussianNLLLoss`** | Known diag + $UP^{-1}U^\top$ | $\mu$ (noise and basis $U$ given) | [MarginalizedNuisanceGaussianNLLLoss](../api/losses.md#sequence-shape-losses) | Sequences with a continuum / baseline marginalised exactly ([guide](linear_nuisance.md)) |
 
 ---
 
@@ -101,6 +102,12 @@ from torchregress.losses import LowRankGaussianLoss
 loss_fn = LowRankGaussianLoss()
 loss = loss_fn(mu, y_true, W, d)
 ```
+
+!!! tip "Known noise plus a smooth nuisance"
+    When the diagonal is a *known* measurement variance and the low-rank part is a
+    nuisance basis (continuum, baseline, calibration polynomial) rather than a
+    learned factor, use [`MarginalizedNuisanceGaussianNLLLoss`](linear_nuisance.md):
+    same covariance structure, per-sample masks, flat priors and the fitted nuisance.
 
 ---
 

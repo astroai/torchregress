@@ -184,6 +184,60 @@
           "wrapper includes graceful fallback paths for unsupported devices/runtime failures"
         ]
       }
+    },
+    {
+      "area": "structural_similarity_1d",
+      "surface": [
+        "structural_similarity_1d",
+        "StructuralSimilarity1dLoss"
+      ],
+      "native_candidate": [
+        "torchmetrics.functional.image.structural_similarity_index_measure",
+        "torch.nn.functional.conv1d"
+      ],
+      "decision": "Keep custom",
+      "rationale": "torchmetrics SSIM is image-only (4-D/5-D, no mask or weights, batch-global data range); a [B, 1, N, 1] reshape with a (k, 1) kernel reproduces its score but cannot express masked/weighted local moments, coverage-based window exclusion, per-row data range, valid-only windows or arbitrary leading dims. The custom path is one native conv1d over stacked moment channels.",
+      "action": "Keep the conv1d implementation and lock parity with torchmetrics on [B, 1, N, 1] inputs (reflect padding: score; valid padding: cropped map) and with a direct per-window NumPy reference for masks and weights.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/losses/test_ssim.py::TestTorchmetricsParity::test_reflect_padding_matches_torchmetrics_score",
+          "tests/losses/test_ssim.py::TestTorchmetricsParity::test_valid_map_equals_cropped_torchmetrics_map",
+          "tests/losses/test_ssim.py::TestNumpyReference::test_masked_weighted_map_matches_direct_windows"
+        ],
+        "known_divergences": [
+          "default padding='valid' scores only windows fully inside the sequence; torchmetrics 1.9 averages reflect-padded windows (padding='reflect' matches it)",
+          "default data_range is the per-row target range; torchmetrics uses max(range(preds), range(target)) over the whole batch",
+          "moments are formed after a per-row shift, so the map differs from torchmetrics' uncentred E[x^2] - E[x]^2 at round-off level"
+        ]
+      }
+    },
+    {
+      "area": "linear_nuisance_gaussian_nll",
+      "surface": [
+        "marginalize_linear_nuisance",
+        "MarginalizedNuisanceGaussianNLLLoss"
+      ],
+      "native_candidate": [
+        "torch.distributions.LowRankMultivariateNormal",
+        "torch.distributions.MultivariateNormal",
+        "torch.linalg.cholesky_ex"
+      ],
+      "decision": "Hybrid",
+      "rationale": "LowRankMultivariateNormal has the same covariance structure but needs the factor materialised per row, has no per-sample masks, no flat (improper) priors and no nuisance posterior; MarginalizedMultiSourceGaussianNLLLoss gives the same NLL for diagonal known noise but materialises a dense [B, N, N] measurement covariance and a per-row Jacobian (about 819 GB at B=1024, N=10k in float64), has no flat priors and no posterior, and copies a shared basis per row; the custom path uses native batched matmul, cholesky_ex and cholesky_solve on m x m systems.",
+      "action": "Keep the Woodbury implementation and lock equality with MultivariateNormal and LowRankMultivariateNormal for proper priors.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/losses/test_linear_nuisance.py::TestDenseParity::test_full_prior_covariance_matches_multivariate_normal",
+          "tests/losses/test_linear_nuisance.py::TestDenseParity::test_per_row_basis_and_prior_match_low_rank_normal",
+          "tests/losses/test_linear_nuisance.py::TestFlatPrior::test_flat_limit_equals_profile_plus_log_det",
+          "tests/losses/test_linear_nuisance.py::TestFlatPrior::test_flat_prior_equals_reml_on_error_contrasts",
+          "tests/losses/test_linear_nuisance.py::TestDenseParity::test_matches_marginalized_multisource_with_diagonal_noise"
+        ],
+        "known_divergences": [
+          "flat prior directions return the improper p(a)=1 marginal, i.e. the restricted likelihood (REML) with its constants (tested against error contrasts); torch.distributions has no improper priors",
+          "rows whose posterior precision is not numerically positive definite raise instead of returning a jittered value"
+        ]
+      }
     }
   ]
 }

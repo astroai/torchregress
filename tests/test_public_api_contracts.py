@@ -204,6 +204,14 @@ EXPECTED_EXPORTS = {
         "IRLSFitResult",
         "IRLSBreakdownError",
         "IRLSConfig",
+        "batched_iteratively_reweighted_fit",
+        "BatchedIRLSProblem",
+        "BatchedIRLSStep",
+        "BatchedIRLSFitConfig",
+        "BatchedIRLSFitResult",
+        "IRLSRowStatus",
+        "solve_normal_equations",
+        "NormalEquationsSolution",
         "RegressionCalibration",
         "SIMEX",
         "LatentNN",
@@ -352,6 +360,17 @@ EXPECTED_EXPORTS = {
 
 
 EXPECTED_SIGNATURES = {
+    "algorithms.batched_iteratively_reweighted_fit": (
+        "(problem: 'BatchedIRLSProblem', initial_theta: 'Tensor', target: 'Tensor', "
+        "precision: 'Tensor', mask: 'Tensor | None' = None, "
+        "config: 'BatchedIRLSFitConfig | None' = None, *, "
+        "initial_weights: 'Tensor | None' = None) -> 'BatchedIRLSFitResult'"
+    ),
+    "algorithms.solve_normal_equations": (
+        "(normal: 'Tensor', rhs: 'Tensor', *, nonnegative: 'Tensor | None' = None, "
+        "start: 'Tensor | None' = None, ridge: 'float' = 1e-08, kkt_tol: 'float' = 1e-10, "
+        "rank_tol: 'float' = 0.0) -> 'NormalEquationsSolution'"
+    ),
     "algorithms.iteratively_reweighted_fit": (
         "(problem: 'IRLSProblem[StateT] | IRLSCallbacks[StateT]', initial_state: 'StateT', "
         "config: 'IRLSFitConfig | None' = None) -> 'IRLSFitResult[StateT]'"

@@ -80,7 +80,10 @@ $$\mathcal{L}_{\beta\text{-NLL}} = (\sigma^2 + \varepsilon)^{-\beta} \cdot \math
 | `LogCoshLoss` | `LogCoshLoss(reduction="mean")` | tanh(r), linear tail |
 | `CharbonnierLoss` | `CharbonnierLoss(eps=1e-3, reduction="mean")` | r / √(r² + ε²) |
 | `CauchyLoss` | `CauchyLoss(c=1.0, reduction="mean")` | Logarithmic tail |
-| `StudentTLoss` | `StudentTLoss(nu=1.0, scale=1.0, reduction="mean")` | Student-t NLL; Cauchy at ν=1, Gaussian as ν→∞ |
+| `StudentTLoss` | `StudentTLoss(nu=1.0, scale=1.0, reduction="mean")` | Student-t NLL; Cauchy at ν=1, Gaussian at `nu=math.inf` |
+| `student_t_nll` | `student_t_nll(residual, precision, nu, *, mask=None, dim=-1)` | Exact `t_ν(0, 1/precision)` NLL with constants, masked, summed over `dim` (`None`: elementwise); `nu=math.inf` is Gaussian |
+| `effective_precision` | `effective_precision(precision, model, eta)` | Precision of the variance model `1/precision + η² model²`; zero precision stays zero for a finite model, `eta` (float or tensor) must be finite and ≥ 0; a tensor `eta` is validated with one host synchronisation per call |
+| `student_t_efficiency` | `student_t_efficiency(nu, noise="gaussian")` | `E[ψ']²/E[ψ²]` of the t_ν location score under Gaussian noise (closed form for ν < 3, Gauss–Hermite above) or t_ν noise (`(ν+1)/(ν+3)`) |
 | `TukeyBiweightLoss` | `TukeyBiweightLoss(c=4.685, reduction="mean")` | Redescending (zero for |r| > c) |
 | `AdaptiveRobustLoss` | `AdaptiveRobustLoss(...)` | Trainable α + scale |
 | `BarronLoss` | `BarronLoss(alpha=1.0, scale=1.0, ...)` | Continuous L1 ↔ L2 family |
@@ -90,6 +93,22 @@ $$\mathcal{L}_{\beta\text{-NLL}} = (\sigma^2 + \varepsilon)^{-\beta} \cdot \math
 | `tukey_biweight` | `tukey_biweight(residual, c=4.685)` | Tukey biweight; constant saturation beyond `c` |
 
 $$\mathcal{L}_{\text{Huber}}(r;\delta) = \begin{cases} \frac{1}{2}r^2 & |r| \le \delta \\ \delta|r| - \frac{1}{2}\delta^2 & |r| > \delta \end{cases}$$
+
+---
+
+## Sequence shape losses
+
+→ **Guides:** [1-D structural similarity](../losses/structural_similarity.md) · [Linear-nuisance marginal likelihood](../losses/linear_nuisance.md)
+
+For `[..., N]` sequences (spectra, light curves, profiles), batched over the leading dimensions.
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `structural_similarity_1d` | `structural_similarity_1d(y_pred, target, *, kernel_size=11, sigma=1.5, data_range=None, k1=0.01, k2=0.03, padding="valid", min_coverage=0.5, mask=None, weights=None, reduction="mean", return_map=False)` | SSIM along the last dim; masked/weighted local moments by normalised convolution; `padding="reflect"` matches `torchmetrics` on `[B, 1, N, 1]` |
+| `StructuralSimilarity1dLoss` | `StructuralSimilarity1dLoss(kernel_size=11, sigma=1.5, data_range=None, k1=0.01, k2=0.03, padding="valid", min_coverage=0.5, reduction="mean")` | `1 - SSIM` per row; `weights` are per-sample moment weights, not row weights |
+| `marginalize_linear_nuisance` | `marginalize_linear_nuisance(y_pred, target, precision, basis, *, prior_precision=None, prior_covariance=None, mask=None) → LinearNuisanceMarginal` | Exact Gaussian NLL of `N(0, diag(1/precision) + U S Uᵀ)` per row via Woodbury (one `m×m` Cholesky per row), plus posterior coefficients, their covariance, fitted nuisance and conditional residual; flat priors give the restricted likelihood |
+| `MarginalizedNuisanceGaussianNLLLoss` | `MarginalizedNuisanceGaussianNLLLoss(reduction="mean")`; `forward(y_pred, target, precision, basis, prior_precision=None, prior_covariance=None, mask=None, weights=None)` | Reducing loss over rows (per-row `weights`) |
+| `LinearNuisanceMarginal` | `NamedTuple(nll, coefficients, coefficient_covariance, nuisance, residual)` | Result of `marginalize_linear_nuisance` |
 
 ---
 

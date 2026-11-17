@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -13,6 +14,7 @@ from torchregress.algorithms import (
     iteratively_reweighted_fit,
     robust_weights,
 )
+from torchregress.losses import student_t_nll
 
 
 def _linear_problem(
@@ -515,3 +517,56 @@ def test_mad_scale_uses_textbook_median_with_mask() -> None:
         for col in ([1.0, 2.0, 4.0, 10.0], [0.0, -4.0, 9.0, 1.0, 2.0])
     ]
     np.testing.assert_allclose(scale.numpy(), expected, rtol=0.0, atol=1e-15)
+
+
+@pytest.mark.parametrize("nu", [1.0, 4.0, 30.0, math.inf])
+def test_student_t_weights_equal_score_over_residual(nu: float) -> None:
+    u = torch.linspace(-8.0, 8.0, 81, dtype=torch.float64)
+    u = u[u != 0].requires_grad_(True)
+    rho = student_t_nll(u, torch.ones_like(u), nu, dim=None)
+    (psi,) = torch.autograd.grad(rho.sum(), u)
+    weights = robust_weights(u.detach(), "student_t", {"nu": nu})
+    torch.testing.assert_close(weights, psi / u.detach(), rtol=1e-13, atol=1e-13)
+
+
+def test_student_t_irls_reaches_t_likelihood_stationary_point() -> None:
+    generator = torch.Generator().manual_seed(3)
+    dtype = torch.float64
+    x = torch.linspace(-1.0, 1.0, 200, dtype=dtype)
+    design = torch.stack((torch.ones_like(x), x), dim=1)
+    ivar = 1.0 + torch.rand(200, generator=generator, dtype=dtype)
+    target = design @ torch.tensor([0.3, 1.2], dtype=dtype)
+    target = target + torch.randn(200, generator=generator, dtype=dtype) * ivar.rsqrt()
+    target[::17] += 25.0
+    nu = 4.0
+
+    def residuals(beta: torch.Tensor) -> torch.Tensor:
+        return (target - design @ beta) * ivar.sqrt()
+
+    def weighted_fit(beta: torch.Tensor, precision: torch.Tensor) -> torch.Tensor:
+        del beta
+        normal = design.T @ (design * precision[:, None])
+        return torch.linalg.solve(normal, design.T @ (precision * target))
+
+    result = iteratively_reweighted_fit(
+        IRLSCallbacks(residuals, weighted_fit),
+        torch.zeros(2, dtype=dtype),
+        IRLSFitConfig(
+            max_iter=200,
+            weight="student_t",
+            weight_params={"nu": nu},
+            scale="none",
+            base_precision=ivar,
+            objective_tol=1e-14,
+            weight_tol=None,
+        ),
+    )
+    assert result.converged
+    beta = result.state.clone().requires_grad_(True)
+    nll = student_t_nll(target - design @ beta, ivar, nu).sum()
+    (grad,) = torch.autograd.grad(nll, beta)
+    assert grad.abs().max() < 1e-6
+    expected = 0.5 * (nu + 1.0) * torch.log1p(residuals(result.state).square() / nu)
+    # The controller reports the base-precision-weighted mean robust objective.
+    weighted = (ivar * expected).sum() / ivar.sum()
+    assert result.objective == pytest.approx(float(weighted), rel=1e-12)

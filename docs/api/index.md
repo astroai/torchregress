@@ -15,7 +15,7 @@ For conceptual guides, derivations, and worked examples, see
 | `torchregress.estimators` | Experimental model-agnostic `ConformalRegressor`, `CalibratedRegressor` and `calibrated_deep_ensemble` | [Estimators API](estimators.md) |
 | `torchregress.ensemble` | Deep ensembles, heteroscedastic ensembles, batch ensembles, SWAG, MC-dropout, BNN | [Ensemble API](ensemble.md) |
 | `torchregress.losses.conformal` | Conformal predictors & `ConformalLoss` | [Conformal API](conformal.md) |
-| `torchregress.algorithms` | IRLS, SIMEX, RC, LatentNN, TicTac, heteroscedastic Laplace, IVON | [Algorithms API](algorithms.md) |
+| `torchregress.algorithms` | IRLS (single and batched), batched normal equations / NNLS, SIMEX, RC, LatentNN, TicTac, heteroscedastic Laplace, IVON | [Algorithms API](algorithms.md) |
 | `torchregress.metrics` | Point, distribution, interval, calibration, OOD, ensemble, multivariate, ordinal, censored, decision | [Metrics API](metrics.md) |
 | `torchregress.calibration` | Variance temperature, isotonic mean, PIT, semi-conformal, label shift | [Calibration API](calibration.md) |
 | `torchregress.constraints` | Output-head constraints (non-negative, bounded, non-crossing, simplex, spectral norm) | [Constraints API](constraints.md) |

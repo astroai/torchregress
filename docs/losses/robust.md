@@ -108,16 +108,71 @@ optimizer = torch.optim.Adam(
 
 ---
 
+### Student-t likelihood with known precisions
+
+When every observation carries a known inverse variance $\lambda_i = 1/\sigma_i^2$ (survey pixels, photometry, instrument noise models), the Student-$t$ likelihood is a robust *likelihood*, not just a robust loss: its normalising constants make deviances comparable across models and data sets \[6\].
+
+[`student_t_nll`](../api/losses.md#robust-losses) is the exact negative log-likelihood of $t_\nu(0, \sigma_i^2)$, masked and summed per row:
+
+$$
+-\log p(\mathbf r \mid \nu, \boldsymbol\lambda)
+= \sum_{i \in \mathcal O} \left[\log\Gamma\!\left(\tfrac{\nu}{2}\right) - \log\Gamma\!\left(\tfrac{\nu+1}{2}\right) + \tfrac12\log(\nu\pi) - \tfrac12\log\lambda_i + \tfrac{\nu+1}{2}\log\!\left(1 + \frac{\lambda_i r_i^2}{\nu}\right)\right],
+$$
+
+where $\mathcal O$ is the set of observed (unmasked) entries. `nu=math.inf` is the Gaussian NLL $\sum_i \tfrac12\lambda_i r_i^2 - \tfrac12\log\lambda_i + \tfrac12\log 2\pi$. The scale is $\sigma_i$ itself, so any $\nu > 0$ is valid and the IRLS weight is
+
+$$
+w_i = \lambda_i\,\frac{\nu + 1}{\nu + \lambda_i r_i^2},
+$$
+
+which is `robust_weights(u, "student_t", {"nu": nu})` at the standardized residual $u_i = r_i\sqrt{\lambda_i}$, times $\lambda_i$.
+
+**Variance model.** [`effective_precision`](../api/losses.md#robust-losses) adds an error proportional to the model $m_i$ (a fractional template or calibration error $\eta$) to the known noise:
+
+$$
+\lambda_{\mathrm{eff},i} = \frac{1}{1/\lambda_i + \eta^2 m_i^2} = \frac{\lambda_i}{1 + \eta^2 m_i^2 \lambda_i}.
+$$
+
+`eta` is a float or a tensor broadcastable to the precisions (e.g. one value per row, `[B, 1]`). A tensor `eta` is validated (finite, $\ge 0$) with one value read back to the host, so on a GPU each call synchronises the device; a float `eta` costs no synchronisation.
+
+**Efficiency.** [`student_t_efficiency`](../api/losses.md#robust-losses) returns $E[\psi']^2/E[\psi^2]$ for the score $\psi(z) = (\nu+1)z/(\nu+z^2)$: the information the $t_\nu$ estimator extracts per unit Gaussian information. Under $t_\nu$ noise (`noise="student_t"`) it is the Fisher factor $(\nu+1)/(\nu+3)$; under Gaussian noise (`noise="gaussian"`, the default) it is a closed form in $\operatorname{erfc}$ for $\nu < 3$ and 200-node Gauss–Hermite quadrature above, both within a few $10^{-15}$ (relative) of high-precision quadrature for every $\nu > 0$ ($0.942$ at $\nu = 5$; it falls like $\sqrt\nu$ as $\nu \to 0$). Use it to turn a Gaussian Fisher information into the asymptotic information of a $t_\nu$ fit.
+
+```python
+import math
+
+import torch
+from torchregress.losses import effective_precision, student_t_efficiency, student_t_nll
+
+torch.manual_seed(0)
+model = torch.ones(4, 256, dtype=torch.float64)
+precision = torch.full_like(model, 100.0)
+target = model + 0.1 * torch.randn_like(model)
+target[:, ::50] += 5.0  # cosmic rays
+mask = torch.ones_like(model, dtype=torch.bool)
+mask[:, :8] = False  # bad pixels
+
+prec_eff = effective_precision(precision, model, eta=0.02)
+nll_t = student_t_nll(target - model, prec_eff, nu=5.0, mask=mask)  # [4]
+nll_gauss = student_t_nll(target - model, prec_eff, nu=math.inf, mask=mask)
+print(nll_t, nll_gauss, student_t_efficiency(5.0), student_t_efficiency(5.0, "student_t"))
+```
+
+!!! tip "Many small fits"
+    To *fit* thousands of independent rows under this likelihood (one spectrum, light curve, or source per row), use [`batched_iteratively_reweighted_fit`](../methods/algorithms/irls.md#batched-irls-for-many-independent-problems): it reweights with $w_i$, applies $\eta$, and reports this NLL per row.
+
+---
+
 ## Comparison & Selection
 
 ### Tradeoff Matrix
 
-| Metric | MSE | Huber | Barron | Cauchy | Tukey |
-|:-------|:---:|:-----:|:------:|:------:|:-----:|
-| **Convergence Speed** | 🚀 | 🚄 | 🚄 | 🚗 | 🐢 |
-| **Outlier Rejection** | ❌ | 🆗 | ✅ | ✅ | 🏆 |
-| **Convexity** | ✅ | ✅ | depends on $\alpha$ | ❌ | ❌ |
-| **Smoothness ($C^2$)** | ✅ | ❌ | ✅ | ✅ | ❌ |
+| Metric | MSE | Huber | Barron | Student-$t$ | Cauchy | Tukey |
+|:-------|:---:|:-----:|:------:|:-----------:|:------:|:-----:|
+| **Convergence Speed** | 🚀 | 🚄 | 🚄 | 🚗 | 🚗 | 🐢 |
+| **Outlier Rejection** | ❌ | 🆗 | ✅ | ✅ | ✅ | 🏆 |
+| **Convexity** | ✅ | ✅ | depends on $\alpha$ | ❌ | ❌ | ❌ |
+| **Smoothness ($C^2$)** | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
+| **Normalised likelihood** | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
 
 ### Decision Flowchart
 
@@ -167,6 +222,7 @@ loss_fn = CVaRLoss(alpha=0.05, base_loss="huber", delta=1.5)
 | 3 | Rockafellar, R. T., & Uryasev, S. ["Conditional Value-at-Risk for General Loss Distributions."](https://www.sciencedirect.com/science/article/pii/S037842660200271X) *J. Banking & Finance*, 2002. |
 | 4 | Barron, J. T. ["A General and Adaptive Robust Loss Function."](https://arxiv.org/abs/1701.03077) *CVPR*, 2019. |
 | 5 | Belagiannis et al. ["Robust Optimization for Deep Regression."](https://arxiv.org/abs/1505.06641) *ICCV*, 2015. |
+| 6 | Lange, K. L., Little, R. J. A., & Taylor, J. M. G. ["Robust Statistical Modeling Using the t Distribution."](https://doi.org/10.1080/01621459.1989.10478852) *J. Amer. Statist. Assoc.*, 84(408):881–896, 1989. |
 
 ---
 

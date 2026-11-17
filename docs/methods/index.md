@@ -68,7 +68,8 @@ the model doesn't know.**
 ### [Algorithms](algorithms/irls.md)
 
 Specialized training algorithms: [IRLS](algorithms/irls.md) for robust
-fitting, [RC](algorithms/rc.md) and [SIMEX](algorithms/simex.md) for
+fitting (one problem, or many independent rows at once with
+[batched IRLS](algorithms/irls.md#batched-irls-for-many-independent-problems)), [RC](algorithms/rc.md) and [SIMEX](algorithms/simex.md) for
 measurement error correction, [TIC-TAC](algorithms/tictac.md) for covariance
 learning, [Heteroscedastic Laplace](algorithms/heteroscedastic_laplace.md)
 for last-layer Bayesian regression, and

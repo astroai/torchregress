@@ -100,6 +100,7 @@ Parametric losses for the Gaussian family — supporting **heteroscedastic** (in
 | `GaussianNLLLoss(fixed_variance=σ²)` | $\mu$ only | Homoscedastic (reduces to scaled MSE) | [`GaussianNLLLoss`](../api/losses.md) |
 | `MultivariateGaussianLoss` | $\boldsymbol{\mu}, \mathbf{L}$ | Correlated multi-output regression | [`MultivariateGaussianLoss`](../api/losses.md) |
 | `LowRankGaussianLoss` | $\boldsymbol{\mu}, \mathbf{U}, \mathbf{d}$ | Scalable multivariate ($\Sigma = UU^\top + \text{diag}(d)$) | [`LowRankGaussianLoss`](../api/losses.md) |
+| `MarginalizedNuisanceGaussianNLLLoss` | $\hat{\mathbf{y}}$ (known noise $\lambda$, nuisance basis $U$) | Sequences with a continuum / baseline / calibration marginalised exactly ($\Sigma = \Lambda^{-1} + U P^{-1} U^\top$) | [`MarginalizedNuisanceGaussianNLLLoss`](../api/losses.md#sequence-shape-losses) |
 | `create_gaussian_nll()` | — | Factory: picks the right variant |
 
 !!! info "GaussianNLL ↔ WeightedMSE continuum"
@@ -119,10 +120,24 @@ Bounded-influence losses for data with **outliers** or heavy-tailed noise.
 | `LogCoshLoss` | $\log\cosh(r)$ | Linear | ⭐⭐ |
 | `CharbonnierLoss` | $\sqrt{r^2 + \epsilon^2} - \epsilon$ | Linear | ⭐⭐ |
 | `CauchyLoss` | $\log(1 + r^2/c^2)$ | Logarithmic | ⭐⭐⭐ |
+| `StudentTLoss`, `student_t_nll` | $\tfrac{\nu+1}{2}\log(1 + \lambda r^2/\nu)$ + exact constants, per-element precision $\lambda$ | Logarithmic | ⭐⭐⭐ |
 | `TukeyBiweightLoss` | Bounded (rejects $\lvert r\rvert > c$) | Zero | ⭐⭐⭐⭐ |
 | `CVaRLoss` | Worst-$\alpha$ fraction | Tail-focused | ⭐⭐⭐ |
 
-Read the full [Robust losses guide](robust.md) — influence functions, redescending behavior, Barron family, CVaR.
+Read the full [Robust losses guide](robust.md) — influence functions, redescending behavior, Barron family, the Student-$t$ likelihood with known precisions (`student_t_nll`, `effective_precision`, `student_t_efficiency`), CVaR.
+
+---
+
+## Sequence Shape Losses
+
+For `[..., N]` sequences — spectra, light curves, profiles — where the *shape* of the signal matters and a smooth distortion should not be scored.
+
+| Loss | Objective | Noise model | API |
+|:-----|:----------|:------------|:----|
+| `StructuralSimilarity1dLoss`, `structural_similarity_1d` | $1 - \overline{\mathrm{SSIM}}$ over windows; masked/weighted local moments | none (similarity index) | [`StructuralSimilarity1dLoss`](../api/losses.md#sequence-shape-losses) |
+| `MarginalizedNuisanceGaussianNLLLoss`, `marginalize_linear_nuisance` | $-\log\mathcal N(y-\hat y;\,0,\,\Lambda^{-1} + U P^{-1}U^\top)$ | known per-sample precision | [`MarginalizedNuisanceGaussianNLLLoss`](../api/losses.md#sequence-shape-losses) |
+
+SSIM is insensitive to local gain and offset but is not a likelihood; the marginalised nuisance likelihood is exactly invariant to the distortions in the span of $U$ and keeps the noise model. Read [1-D structural similarity](structural_similarity.md) and [Linear-nuisance marginal likelihood](linear_nuisance.md).
 
 ---
 

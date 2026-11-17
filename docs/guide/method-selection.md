@@ -44,7 +44,7 @@ loss = tr.losses.WeightedHuberLoss()
 <!-- BEGIN:TASK_MATRIX_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_task_matrix_table`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-08`
+_Generated date_: `2026-11-12`
 
 | Task / Constraint | Recommended Start | Strong Alternatives | Notes |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Legend:
 <!-- BEGIN:FAMILY_CAPABILITY_MATRIX_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_family_capability_matrix_table`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-08`
+_Generated date_: `2026-11-12`
 
 | Method Family | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD Support | Imbalance | Noisy Features (EIV) |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -116,13 +116,13 @@ _Generated date_: `2026-11-08`
 | `multivariate` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `observation_mapping` (3) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `ordinal` (2) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
+| `point_loss` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `poisson` (4) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `poisson_gaussian` (4) | yes | yes | yes | no | no | no | partial | partial | no | no |
-| `probabilistic_loss` (11) | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `probabilistic_loss` (12) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` (2) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `representation_regularizer` (1) | no | no | partial | no | no | no | no | partial | yes | no |
-| `robust_algorithm` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
+| `robust_algorithm` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `robust_loss` (9) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `semi_supervised` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
@@ -161,7 +161,7 @@ Next step for operational tradeoffs: [Choosing Methods by Constraint](choosing-b
 
 _Generated provenance_: `tools/render_method_catalog.py:render_method_matrix_generated_section`
 _Source artifacts_: `docs/reports/method_catalog_generated.md`, `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-08`
+_Generated date_: `2026-11-12`
 
 | Method | Family | Maturity | Multi-target | Multimodal | Epistemic | Aleatoric | Decomposition | Calibration | OOD |
 |---|---|---|---|---|---|---|---|---|---|
@@ -268,6 +268,7 @@ _Generated date_: `2026-11-08`
 | `RelativeSurveySplineHead` | `observation_mapping` | `Available` | yes | no | no | no | no | partial | partial |
 | `CumulativeLinkLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
+| `StructuralSimilarity1dLoss` | `point_loss` | `Available` | yes | no | no | no | no | no | no |
 | `WeightedMSELoss` | `point_loss` | `Core` | yes | no | no | no | no | partial | partial |
 | `NegativeBinomialNLLLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
 | `PoissonDevianceLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
@@ -285,12 +286,14 @@ _Generated date_: `2026-11-08`
 | `GaussianWassersteinBoundLoss` | `probabilistic_loss` | `Available` | yes | no | no | partial | no | partial | partial |
 | `LowRankGaussianLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
 | `MarginalizedMultiSourceGaussianNLLLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
+| `MarginalizedNuisanceGaussianNLLLoss` | `probabilistic_loss` | `Available` | yes | no | no | partial | no | partial | partial |
 | `MultivariateGaussianLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
 | `NeighborhoodCovariancePseudoLabeler` | `probabilistic_loss` | `Available` | yes | no | no | partial | no | partial | partial |
 | `RobustMultiSourceGaussianNLLLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
 | `MultiQuantileLoss` | `quantile` | `Strong` | yes | no | no | no | no | yes | partial |
 | `QuantileLoss` | `quantile` | `Core` | yes | no | no | no | no | yes | partial |
 | `UncertaintyAwareConR` | `representation_regularizer` | `Available` | no | no | no | no | no | no | partial |
+| `batched_iteratively_reweighted_fit` | `robust_algorithm` | `Available` | no | no | no | no | no | partial | partial |
 | `iteratively_reweighted_fit` | `robust_algorithm` | `Strong` | yes | no | no | no | no | partial | partial |
 | `AdaptiveRobustLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `BarronLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
@@ -357,13 +360,13 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 | `multivariate` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `observation_mapping` | 3 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `ordinal` | 2 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |
+| `point_loss` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `poisson` | 4 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `poisson_gaussian` | 4 | yes | yes | yes | no | no | no | partial | partial | no | no |
-| `probabilistic_loss` | 11 | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `probabilistic_loss` | 12 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` | 2 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `representation_regularizer` | 1 | no | no | partial | no | no | no | no | partial | yes | no |
-| `robust_algorithm` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
+| `robust_algorithm` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `robust_loss` | 9 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `semi_supervised` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
@@ -441,7 +444,7 @@ Key tradeoffs and common failure modes:
 <!-- BEGIN:DECISION_WORKFLOW_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_decision_workflow`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-08`
+_Generated date_: `2026-11-12`
 
 1. Need coverage guarantees?
    Use `ConformalLoss (split / CQR / ACI patterns)`.

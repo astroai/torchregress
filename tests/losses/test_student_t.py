@@ -2,10 +2,16 @@
 
 import math
 
+import numpy as np
 import pytest
 import torch
 
-from torchregress.losses.student_t import StudentTLoss
+from torchregress.losses.student_t import (
+    StudentTLoss,
+    effective_precision,
+    student_t_efficiency,
+    student_t_nll,
+)
 
 # ── fixtures ──────────────────────────────────────────────────────────────
 
@@ -259,3 +265,197 @@ def test_registry_includes_student_t() -> None:
 
     cls = get_regression_loss("student_t")
     assert cls is StudentTLoss
+
+
+# ── functional Student-t family ───────────────────────────────────────────
+
+
+def _student_t_case() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    generator = torch.Generator().manual_seed(11)
+    residual = 3.0 * torch.randn(4, 50, generator=generator, dtype=torch.float64)
+    precision = 0.1 + 2.0 * torch.rand(4, 50, generator=generator, dtype=torch.float64)
+    mask = torch.rand(4, 50, generator=generator) > 0.3
+    return residual, precision, mask
+
+
+@pytest.mark.parametrize("nu", [0.5, 1.0, 2.5, 5.0, 30.0])
+def test_student_t_nll_matches_scipy_logpdf(nu: float) -> None:
+    from scipy import stats
+
+    residual, precision, mask = _student_t_case()
+    scale = precision.rsqrt().numpy()
+    reference = -stats.t.logpdf(residual.numpy(), df=nu, scale=scale)
+    elementwise = student_t_nll(residual, precision, nu, dim=None)
+    torch.testing.assert_close(elementwise, torch.from_numpy(reference), rtol=1e-12, atol=1e-12)
+    per_row = student_t_nll(residual, precision, nu, mask=mask)
+    expected = torch.from_numpy(reference * mask.numpy()).sum(-1)
+    torch.testing.assert_close(per_row, expected, rtol=1e-12, atol=1e-12)
+
+
+def test_student_t_nll_gaussian_limit_matches_scipy_norm() -> None:
+    from scipy import stats
+
+    residual, precision, mask = _student_t_case()
+    reference = -stats.norm.logpdf(residual.numpy(), scale=precision.rsqrt().numpy())
+    out = student_t_nll(residual, precision, math.inf, mask=mask)
+    expected = torch.from_numpy(reference * mask.numpy()).sum(-1)
+    torch.testing.assert_close(out, expected, rtol=1e-12, atol=1e-12)
+    # Large finite nu approaches the Gaussian.
+    close = student_t_nll(residual, precision, 1e7, mask=mask)
+    torch.testing.assert_close(close, out, rtol=1e-5, atol=1e-5)
+
+
+def test_student_t_nll_masked_entries_are_ignored_even_if_non_finite() -> None:
+    residual, precision, mask = _student_t_case()
+    dirty_r = torch.where(mask, residual, torch.nan)
+    dirty_p = torch.where(mask, precision, -1.0)
+    clean = student_t_nll(residual, precision, 4.0, mask=mask)
+    torch.testing.assert_close(student_t_nll(dirty_r, dirty_p, 4.0, mask=mask), clean)
+    empty = torch.zeros_like(mask)
+    assert torch.equal(student_t_nll(dirty_r, dirty_p, 4.0, mask=empty), torch.zeros(4).double())
+
+
+def test_student_t_nll_fails_closed_on_unmasked_invalid_precision() -> None:
+    residual = torch.tensor([[0.5, 1.0]], dtype=torch.float64)
+    assert torch.isinf(student_t_nll(residual, torch.tensor([[1.0, 0.0]]).double(), 4.0)).all()
+    nan_row = student_t_nll(residual, torch.tensor([[1.0, torch.nan]]).double(), 4.0)
+    assert torch.isnan(nan_row).all()
+    with pytest.raises(ValueError, match="nu must be > 0"):
+        student_t_nll(residual, torch.ones_like(residual), 0.0)
+
+
+def test_student_t_nll_gradient_is_minus_weighted_residual() -> None:
+    residual, precision, _ = _student_t_case()
+    nu = 4.0
+    r = residual.clone().requires_grad_(True)
+    student_t_nll(r, precision, nu).sum().backward()
+    weight = precision * (nu + 1.0) / (nu + precision * residual.square())
+    torch.testing.assert_close(r.grad, weight * residual, rtol=1e-12, atol=1e-12)
+
+
+def test_student_t_loss_matches_functional_and_accepts_infinite_nu() -> None:
+    residual, _, mask = _student_t_case()
+    for nu in (3.0, math.inf):
+        loss = StudentTLoss(nu=nu, scale=2.0, reduction="none")
+        out = loss(torch.zeros_like(residual), residual)
+        precision = torch.full_like(residual, 0.25)
+        torch.testing.assert_close(out, student_t_nll(residual, precision, nu, dim=None))
+
+
+def test_effective_precision_variance_model() -> None:
+    _, precision, _ = _student_t_case()
+    model = torch.linspace(-3.0, 3.0, precision.shape[-1], dtype=torch.float64)
+    eta = 0.05
+    out = effective_precision(precision, model, eta)
+    torch.testing.assert_close(out, 1.0 / (1.0 / precision + eta**2 * model.square()))
+    assert effective_precision(precision, model, 0.0) is precision
+    zero = torch.zeros(3, dtype=torch.float64)
+    assert torch.equal(effective_precision(zero, torch.ones(3).double(), 0.1), zero)
+    per_row = torch.tensor([[0.0], [0.1], [0.2], [0.3]], dtype=torch.float64)
+    rows = effective_precision(precision, model, per_row)
+    torch.testing.assert_close(rows[2], effective_precision(precision[2], model, 0.2))
+    with pytest.raises(ValueError, match="eta"):
+        effective_precision(precision, model, -0.1)
+
+
+@pytest.mark.parametrize("bad", [-0.1, math.nan, math.inf])
+def test_effective_precision_rejects_invalid_tensor_eta(bad: float) -> None:
+    precision = torch.ones(3, 4, dtype=torch.float64)
+    model = torch.ones(3, 4, dtype=torch.float64)
+    eta = torch.full((3, 1), 0.1, dtype=torch.float64)
+    eta[1, 0] = bad
+    with pytest.raises(ValueError, match="eta must be finite"):
+        effective_precision(precision, model, eta)
+
+
+@pytest.mark.parametrize("shape", [(2, 3, 1), (3,), (2, 4)])
+def test_effective_precision_tensor_eta_must_broadcast_to_precision(
+    shape: tuple[int, ...],
+) -> None:
+    # (2, 3, 1) broadcasts but expands the output; (3,) and (2, 4) do not
+    # broadcast at all.
+    precision = torch.ones(3, 4, dtype=torch.float64)
+    with pytest.raises(ValueError, match="broadcast"):
+        effective_precision(precision, precision, torch.full(shape, 0.1, dtype=torch.float64))
+
+
+@pytest.mark.parametrize("nu", [1.0, 3.0, 5.0, 10.0])
+def test_student_t_efficiency_matches_quadrature(nu: float) -> None:
+    from scipy import integrate, stats
+
+    def psi(z: float) -> float:
+        return (nu + 1.0) * z / (nu + z * z)
+
+    def dpsi(z: float) -> float:
+        return (nu + 1.0) * (nu - z * z) / (nu + z * z) ** 2
+
+    for law, noise in ((stats.norm(), "gaussian"), (stats.t(df=nu), "student_t")):
+        e_psi2 = integrate.quad(lambda z: psi(z) ** 2 * law.pdf(z), -np.inf, np.inf)[0]
+        e_dpsi = integrate.quad(lambda z: dpsi(z) * law.pdf(z), -np.inf, np.inf)[0]
+        assert student_t_efficiency(nu, noise) == pytest.approx(
+            e_dpsi**2 / e_psi2, rel=1e-9, abs=0.0
+        )
+    assert student_t_efficiency(nu, "student_t") == (nu + 1.0) / (nu + 3.0)
+
+
+# E[ψ']²/E[ψ²] under N(0, 1), mpmath quadrature at 40 digits split at ±√ν
+# (the integrands are sharply peaked there for small ν).
+_GAUSSIAN_EFFICIENCY = {
+    1e-4: 0.015813318678772718,
+    0.01: 0.14597427213807549,
+    0.05: 0.2939222207513924,
+    0.1: 0.38566324700044832,
+    0.5: 0.64824609018873961,
+    1.0: 0.76154243304489677,
+    1.5: 0.82029895220324634,
+    2.0: 0.85705210814757343,
+    2.5: 0.88233723459860524,
+    3.0: 0.90079766745498764,
+    5.0: 0.94196183456315327,
+    30.0: 0.99545966064580325,
+    1e3: 0.99999408281288983,
+}
+
+
+@pytest.mark.parametrize("nu", sorted(_GAUSSIAN_EFFICIENCY))
+def test_student_t_gaussian_efficiency_matches_high_precision_reference(nu: float) -> None:
+    assert student_t_efficiency(nu) == pytest.approx(_GAUSSIAN_EFFICIENCY[nu], rel=1e-13, abs=0)
+
+
+def test_student_t_efficiency_limits_and_validation() -> None:
+    assert student_t_efficiency(math.inf) == 1.0
+    assert student_t_efficiency(math.inf, "student_t") == 1.0
+    assert student_t_efficiency(5.0) == pytest.approx(0.9419618345631522, rel=1e-14)
+    assert student_t_efficiency(1e6) == pytest.approx(1.0, abs=1e-5)
+    with pytest.raises(ValueError, match="noise"):
+        student_t_efficiency(5.0, "laplace")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="nu must be > 0"):
+        student_t_efficiency(-1.0)
+
+
+# log Γ(ν/2) − log Γ((ν+1)/2) + ½ log(νπ), mpmath at 50 digits.
+_LOG_NORM = {
+    30.0: 0.92727032537884565092,
+    1e2: 0.92143849154300455812,
+    1e5: 0.91894103320467270011,
+    1e9: 0.91893853345467274178,
+    1e15: 0.91893853320467299178,
+}
+
+
+@pytest.mark.parametrize("nu", sorted(_LOG_NORM))
+def test_student_t_log_norm_is_accurate_for_large_nu(nu: float) -> None:
+    from torchregress.losses.student_t import _student_t_log_norm
+
+    assert _student_t_log_norm(nu) == pytest.approx(_LOG_NORM[nu], rel=0, abs=1e-14)
+
+
+def test_student_t_nll_tends_to_the_gaussian_branch() -> None:
+    generator = torch.Generator().manual_seed(3)
+    residual = torch.randn(4, 50, generator=generator, dtype=torch.float64)
+    precision = 0.5 + torch.rand(4, 50, generator=generator, dtype=torch.float64)
+    gaussian = student_t_nll(residual, precision, math.inf)
+    torch.testing.assert_close(
+        student_t_nll(residual, precision, 1e15), gaussian, rtol=1e-12, atol=1e-12
+    )
+    assert math.isfinite(float(student_t_nll(residual, precision, 1e300).sum()))

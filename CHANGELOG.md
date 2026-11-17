@@ -9,6 +9,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `torchregress.losses.structural_similarity_1d` and `StructuralSimilarity1dLoss` (`1 - SSIM`):
+  structural similarity along the last dimension of `[..., N]` sequences (spectra, light
+  curves, profiles), batched over leading dimensions. Masks and per-sample weights (e.g.
+  inverse variances) enter every local mean, variance and covariance by normalised
+  convolution; a zero weight is a masked sample; windows with less than `min_coverage`
+  of their kernel mass valid are excluded; masked samples may hold `NaN`. Gaussian or uniform window, `padding="valid"`
+  (default), `"same"` (sequence masked beyond its ends) or `"reflect"` (reproduces
+  `torchmetrics` 2-D SSIM on `[B, 1, N, 1]` with a `(k, 1)` kernel to round-off); per-row
+  `data_range` (default: the target row's valid range, independent of the batch);
+  `return_map`. Documented as a similarity index without a noise model, dependent on
+  `data_range`, and insensitive to local gain/offset.
+- `torchregress.losses.marginalize_linear_nuisance` and `MarginalizedNuisanceGaussianNLLLoss`:
+  exact Gaussian NLL of `[..., N]` rows with known per-sample precision and a linear
+  nuisance `U a` (continuum, baseline, calibration polynomial) integrated out (Rybicki &
+  Press 1992), via Woodbury and the matrix determinant lemma: one Jacobi-scaled `m x m`
+  Cholesky per row, never an `N x N` matrix. Shared `[N, m]` or per-row bases, full prior
+  covariance or diagonal prior precision with flat (improper) directions giving the
+  restricted likelihood, exact masking, and the posterior nuisance coefficients, their
+  covariance, the fitted nuisance and the conditional residual (`LinearNuisanceMarginal`).
+  Rows whose flat directions are not constrained by the unmasked data raise instead of
+  being regularised. Runs in at least float32 with autocast disabled, so AMP does not
+  demote the Gram products and solves. Forward + backward at N=10,000, m=50, float64, 2 threads on a shared
+  host: about 1,000 rows/s with a shared basis (`tools/benchmark_linear_nuisance.py`).
+- Student-t family with known per-observation precision:
+  `torchregress.losses.student_t_nll(residual, precision, nu, *, mask=None, dim=-1)` is
+  the exact `t_nu(0, 1/precision)` NLL with all constants, masked and summed per row
+  (`nu=math.inf` is the Gaussian; masked entries may be non-finite);
+  `effective_precision(precision, model, eta)` is the variance model
+  `1/precision + eta^2 model^2` (a tensor `eta` is validated with one host sync per call); `student_t_efficiency(nu, noise="gaussian")` is
+  `E[psi']^2/E[psi^2]` of the t location score under Gaussian noise (closed form for nu < 3,
+  200-node Gauss-Hermite above; round-off accurate for every nu > 0) or t
+  noise (the Fisher factor `(nu+1)/(nu+3)`). `robust_weights` and
+  `iteratively_reweighted_fit` accept `weight="student_t"` (`(nu+1)/(nu+u^2)`, the IRLS/MM
+  weight psi(u)/u of the exact t NLL; its weighted normal matrix estimates the Gaussian,
+  not the t Fisher, information). `StudentTLoss` accepts `nu=math.inf`.
+- `torchregress.algorithms.batched_iteratively_reweighted_fit(problem, initial_theta, target,
+  precision, mask=None, config=None, *, initial_weights=None)`: IRLS for many independent
+  rows (`[B, N]` observations with known precisions and masks; one spectrum or source per
+  row) with no per-row Python loop and one host sync per controller iteration (with a damped
+  solve, plus one for the decrease test and one per damping attempt; the caller's solve is
+  extra). Student-t weights by default (any `robust_weights` family), variance
+  `1/precision + eta^2 m^2`, exact per-row NLL plus an optional penalty, per-row
+  `IRLSRowStatus` (converged / max_iterations / stalled / failed / empty, mapped onto
+  `IRLSTermination` in its docstring) with early exit of finished rows. Convergence is
+  certified on the full step in standard-error units (`BatchedIRLSFitConfig.step_tol`); an
+  optional Levenberg-Marquardt `damped_solve` is accepted on objective decrease and never
+  counts as converged. Failed and empty rows are `NaN`, not zeros. The caller owns the
+  weighted solve (`BatchedIRLSProblem`, `BatchedIRLSStep`, `BatchedIRLSFitConfig`,
+  `BatchedIRLSFitResult`); a solve may report `ridge_used`, accumulated per row into
+  `BatchedIRLSFitResult.ridge_used`. At N=4096, n=8 (float64, CPU, 2 threads, on a shared
+  4-CPU host) it fits 260-730 rows/s for B=100..10,000, 4-12x a per-row loop over
+  `iteratively_reweighted_fit` in the same run (`tools/benchmark_batched_irls.py`;
+  `--max-outlier-fraction` draws per-row outlier fractions so rows converge at different
+  iterations and the compaction of finished rows shows in its row-solve count). The
+  controller holds about three `[B, N]` working buffers of the running rows (plus two
+  transients) on top of the caller's data.
+- `torchregress.algorithms.solve_normal_equations(normal, rhs, *, nonnegative=None, start=None,
+  ridge=1e-8, kkt_tol=1e-10, rank_tol=0.0)`: many small least-squares problems from their
+  normal equations in one call. Jacobi-scaled batched Cholesky (no host sync on an
+  accelerator) with a flagged ridge fallback (by default only where the factorisation fails, so identified rows are never
+  biased; opt-in `rank_tol > 0` also takes it where the smallest-to-largest eigenvalue ratio
+  of the scaled final system is at most `rank_tol`, testing only the final free set of the
+  non-negative solve and re-solving flagged rows as the strictly convex ridged problem;
+  solution and standard errors are then regularised) and standard
+  errors; with a `nonnegative` mask, batched Lawson-Hanson NNLS on
+  the scaled normal equations with a warm-startable free set (each active-set step works on
+  the rows still pending, about one host sync per step; the standard errors reuse each
+  row's last free-block factor). Empty columns are pinned at 0 with
+  infinite standard error; singular or non-finite rows return `NaN` and are flagged.
 - `torchregress.models.MarginalContrastiveDensity`: Marginal Contrastive Discrimination
   (Meziani, Ndiaye & Riu 2022), `p(y|x) = p(y) r(x, y)` from an unconditional flow and a
   CNRE ratio classifier. Monte-Carlo-normalized `log_prob`, importance-resampled `sample`
@@ -41,6 +110,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remain better and sample much faster (see the flow docs).
 ### Changed
 
+- `solve_normal_equations` does less work per call, with bit-identical results (6,144
+  randomized cases, both dtypes, all flags): the non-negative solve's standard errors reuse
+  each row's last free-block Cholesky factor instead of factorising every final free block
+  again; the ridged factorisation runs only for the rows whose plain one failed (on the CPU;
+  on an accelerator both are still computed, without a host sync); active-set steps on every
+  row skip the gathers, and the empty-column and non-finite-row handling are skipped on the
+  CPU when no row needs them. Per call, 2 threads, `n` 6-20 with 4-16 constrained: 0.55-0.70x
+  the previous time at `B = 1`, 0.6-0.95x at `B = 8-512`; the unconstrained solve 0.5-0.6x.
+  uspm's S1 refine (one object per call) takes 0.88x the time it took with the previous version.
+  `tools/benchmark_normal_equations.py` measures it (`--uspm-reference` also times uspm's
+  former `nnls_normal`); `scripts/check_uspm_irls_parity.py` now compares against uspm's
+  pre-adoption implementation frozen in `scripts/uspm_b461f8f_reference.py`.
 - `NormalizingFlowLoss.sample` draws large requests in blocks of at most 8192 draws
   (contexts x samples) and frees each block's inverse-transform garbage before the next.
   Results follow the same distribution; requests up to 8192 draws are unchanged

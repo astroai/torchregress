@@ -11,10 +11,11 @@ from typing import Any, Generic, Literal, Protocol, TypeVar, cast, runtime_check
 import torch
 
 from ..losses.robust import _barron_elementwise
+from ..losses.student_t import _student_t_rho, _student_t_weight, _validated_nu
 from ..utils.tensor_ops import _MAD_TO_SIGMA
 
 StateT = TypeVar("StateT")
-RobustWeightName = Literal["huber", "pseudo_huber", "tukey", "cauchy", "barron"]
+RobustWeightName = Literal["huber", "pseudo_huber", "tukey", "cauchy", "barron", "student_t"]
 IRLSTermination = Literal["converged", "max_iterations", "empty", "breakdown", "non_finite"]
 ScaleEstimator = Callable[[torch.Tensor, torch.Tensor | None], torch.Tensor]
 WeightFunction = Callable[..., torch.Tensor]
@@ -171,11 +172,23 @@ def robust_weights(
     weight: RobustWeightName | WeightFunction = "huber",
     weight_params: Mapping[str, float] | None = None,
 ) -> torch.Tensor:
-    """Return IRLS multipliers for standardized scalar residual magnitudes."""
+    """Return IRLS multipliers ``ψ(u)/u`` for standardized residual magnitudes ``u``.
+
+    ``"student_t"`` (parameter ``nu``, default 5; ``math.inf`` gives unit weights)
+    is the IRLS/MM (EM) weight ``ψ(u)/u = (ν+1)/(ν+u²)`` of the exact ``t_ν`` NLL.
+    Unlike the other named families it is not normalised to 1 at ``u = 0``
+    (``"cauchy"`` with ``c = √ν`` differs from it by the constant factor
+    ``ν/(ν+1)``). Its expectation under ``t_ν`` noise is 1, so a weighted normal
+    matrix built from it estimates the Gaussian information ``XᵀΛX``, not the
+    ``t_ν`` Fisher information ``(ν+1)/(ν+3) · XᵀΛX``: inverting it does not give
+    asymptotic ``t_ν`` standard errors (see :func:`student_t_efficiency`).
+    """
     params = dict(weight_params or {})
     value = standardized_residuals.abs()
     if callable(weight):
         result = weight(value, **params)
+    elif weight == "student_t":
+        result = _student_t_weight(value.square(), _student_t_nu(params))
     elif weight == "huber":
         delta = _positive_parameter(params, "delta", 1.345)
         result = torch.where(value <= delta, torch.ones_like(value), delta / value.clamp_min(1e-30))
@@ -425,6 +438,10 @@ def iteratively_reweighted_fit(
     )
 
 
+def _student_t_nu(params: Mapping[str, float]) -> float:
+    return _validated_nu(params.get("nu", 5.0))
+
+
 def _positive_parameter(params: Mapping[str, float], name: str, default: float) -> float:
     value = float(params.get(name, default))
     if not math.isfinite(value) or value <= 0:
@@ -439,6 +456,8 @@ def _robust_objective(
 ) -> torch.Tensor:
     if callable(weight):
         return 0.5 * distance.square() * robust_weights(distance, weight, params)
+    if weight == "student_t":
+        return _student_t_rho(distance.square(), _student_t_nu(params))
     if weight == "huber":
         delta = _positive_parameter(params, "delta", 1.345)
         return torch.where(
