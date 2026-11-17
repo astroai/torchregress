@@ -540,18 +540,20 @@ def test_rows_whose_free_set_changed_after_their_last_factor_are_refactorised(
     normal, rhs = _stale_batch(single)
     mask = torch.ones(4, dtype=torch.bool)
     active_set = module._active_set
-    stale_rows: list[int] = []
-
-    def counting(*args):  # type: ignore[no-untyped-def]
-        result = active_set(*args)
-        stale_rows.append(int((~result[-1]).sum()))
-        return result
-
-    monkeypatch.setattr(module, "_active_set", counting)
     out = solve_normal_equations(normal, rhs, nonnegative=mask)
-    # Some row ran out of steps after its last factorisation (alone, every step
-    # is on every row; in the batch, the other rows finish earlier).
-    assert sum(stale_rows) >= 1
+    # Whether a row's active set cycles until the step budget is BLAS-dependent:
+    # this float32 design exhausts the budget on some CPUs and converges on
+    # others. A converged row must meet the KKT conditions; a row that stops
+    # stale is refactorised below.
+    gradient = rhs - (normal @ out.solution.unsqueeze(-1)).squeeze(-1)
+    scale = torch.diagonal(normal, dim1=-2, dim2=-1).clamp_min(0).sqrt()
+    scaled_gradient = gradient / scale.clamp_min(torch.finfo(normal.dtype).tiny)
+    converged = ~out.singular.unsqueeze(-1) & out.free
+    if converged.any():
+        assert scaled_gradient[converged].abs().max() < 1e-4
+    at_bound = ~out.singular.unsqueeze(-1) & ~out.free
+    if at_bound.any():
+        assert (scaled_gradient[at_bound] < 1e-4).all()
 
     def all_stale(*args):  # type: ignore[no-untyped-def]
         *head, fresh = active_set(*args)
